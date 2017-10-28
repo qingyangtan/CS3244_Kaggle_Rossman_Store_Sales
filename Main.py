@@ -93,7 +93,7 @@ def cv(df, labels, model):
         start_val = math.floor(i/K * num_rows)
         end_val = math.floor((i+1)/K * num_rows)
         
-        if K==10:
+        if i==K:
             end_val = num_rows
         print(start_val, end_val)
         
@@ -119,6 +119,9 @@ md = SVC()
 
 print(cv(df, labels, md))
 
+"""
+
+"""
 store1 = df.loc[df.Store == 1]
 #store1.CompetitionOpenSinceYear
 #plt.plot(store1.CompetitionOpenSinceMonth)
