@@ -3,6 +3,12 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+
+## importing the models that will be trialed and tested against validation dataset
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+import xgboost as xgb
 
 store = pd.read_csv('store.csv')
 train = pd.read_csv('train.csv',dtype={"StateHoliday": str})
@@ -83,41 +89,63 @@ def rmspe(pred, labels):
 """
 Cross Validation Code
 """
-def cv(df, labels, model):
-    df = df.values
-    num_rows = df.shape[0]
-    K = 10
-    cv_score = 0
-    for i in range(K):
-        # Get validation array
-        start_val = math.floor(i/K * num_rows)
-        end_val = math.floor((i+1)/K * num_rows)
-        
-        if i==K:
-            end_val = num_rows
-        print(start_val, end_val)
-        
-        df_val = df[start_val:end_val,:]
-        labels_val = df[start_val:end_val,:]
-        
-        # Get training array by deleting rows for validation
-        mask = np.ones(num_rows, dtype=bool)
-        mask[start_val:end_val+1] = False
-        df_train = df[mask]
-        labels_train = labels[mask]
-        print(mask)
-        print(mask.shape)
-        print(df.shape)
-        print(labels.shape)
-        
-        fitted = model.fit(df_train, labels_train)
-        pred = fitted.predict(df_val)
-        
-        cv_score += rmspe(pred, labels_val)
+params_svr = {'kernel': ['rbf', 'poly'], 
+			 'degree': range(5), 
+			 'C': np.logspace(-4, 2, 10),
+			 'epsilon': np.logspace(-4, 0, 10),
+			 'gamma': np.logspace(-3, 2, 10)
+			 }
 
-md = SVC()
+params_rf = {'n_estimators': np.logspace(0, 4, 10),
+			'max_features': ['auto', 'sqrt', 'log2'],
+			'max_depth': range(9)
+			}
 
-print(cv(df, labels, md))
+params_xgb = {'n_estimators': np.logspace(0, 4, 10),
+			'learning_rate': np.logspace(-4, 0, 10),
+			'max_depth': range(9),
+			'objective':'reg:linear',
+			"subsample": 0.8,
+          	"colsample_bytree": 0.7
+			}
+
+def cv(df, labels, models, n, k, scoring_fn):
+    # df = df.values
+    # num_rows = df.shape[0]
+    # cv_score = 0
+    clfs = []
+    cv_sets = TimeSeriesSplit(n_splits = k).split(df):
+    for params, model in models:
+    	clf = GridSearchCV(model, params, scoring = rmspe, cv = cv_sets, random_state = 3244)
+        # Get validation array (not necessary as time split cv_sets provides this)
+        # start_val = math.floor(subset/k * num_rows)
+        # end_val = math.floor((subset+1)/k * num_rows)
+        
+        # if subset == k:
+        #     end_val = num_rows
+        # print(start_val, end_val)
+        
+        # df_val = df[start_val:end_val,:]
+        # labels_val = df[start_val:end_val,:]
+        
+        # # Get training array by deleting rows for validation
+        # mask = np.ones(num_rows, dtype=bool)
+        # mask[start_val:end_val+1] = False
+        # df_train = df[mask]
+        # labels_train = labels[mask]
+        # print(mask)
+        # print(mask.shape)
+        # print(df.shape)
+        # print(labels.shape)
+        
+        fitted = clf.fit(df, labels)
+        clfs.append(clf)
+    return clfs
+        # pred = fitted.predict(df_val)
+        # cv_score += rmspe(pred, labels_val)
+
+models = {params_svr: SVR(), params_rf: RandomForestRegressor(), params_xgb: xgb.XGBClassifier()}
+optimal_models = cv(df, labels, models, 5, 10, rmspe)
 
 """
 
