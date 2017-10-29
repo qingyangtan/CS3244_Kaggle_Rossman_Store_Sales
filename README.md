@@ -1,6 +1,6 @@
 # CS3244_Kaggle_Rossman_Store_Sales
 
-</b>Team Description <b>
+<b>Team Description </b>
 
 Team Name – The Learning Machines
 Team Members - Ang Zhen Xuan, Phang Chun Rong, Tan Qing Yang  
