@@ -131,12 +131,13 @@ params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
              'max_depth': range(9)
             }
 
-params_xgb = {'n_estimators': range(100, 500, 100),
-              'learning_rate': np.logspace(-4, 0, 4),
-              'max_depth': [6,7,8,9],
+params_xgb = {'n_estimators': [100, 300, 500, 1000],
+              'learning_rate': [0.1, 0.2, 0.5],
+              'max_depth': [8,9,11],
               "subsample": [0.8],
               "colsample_bytree": [0.7],
               "seed": [3244],
+              "eta": [0.2],
              }
 
 
@@ -152,7 +153,7 @@ def cv(train, labels, models, k, scoring_fn):
 
 
 models = [(params_xgb, xgb.XGBRegressor())]
-optimal_models = cv(train, labels, models, 5, make_scorer(rmspe))
+optimal_models = cv(train, np.log1p(labels), models, 5, make_scorer(rmspe))
 
 # ##############
 # ### TO-DOs ###
