@@ -123,40 +123,36 @@ def rmspe_xg(yhat, y):
 
 """
 Cross Validation Code
+
+Choosing hyper parameters for models
 """
-params_svr = {'kernel': ['rbf', 'poly'], 
-			 'degree': range(5), 
-			 'C': np.logspace(-4, 1, 5),
-			 'epsilon': np.logspace(-4, 0, 5),
-			 'gamma': np.logspace(-3, 2, 5)
-			 }
-
 params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
-			'max_features': ['auto', 'sqrt', 'log2'],
-			'max_depth': range(9)
-			}
+             'max_features': ['auto', 'sqrt', 'log2'],
+             'max_depth': range(9)
+            }
 
-params_xgb = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 4)],
-			'learning_rate': np.logspace(-4, 0, 5),
-			'max_depth': [6,7,8,9],
-			"subsample": [0.8],
-          	"colsample_bytree": [0.7]
-			}
+params_xgb = {'n_estimators': range(100, 500, 100),
+              'learning_rate': np.logspace(-4, 0, 4),
+              'max_depth': [6,7,8,9],
+              "subsample": [0.8],
+              "colsample_bytree": [0.7],
+              "seed": [3244],
+             }
 
 
 def cv(train, labels, models, k, scoring_fn):
     clfs = []
     cv_sets = TimeSeriesSplit(n_splits=k).split(train)
     for idx, model_params in enumerate(models):
-    	params, model = model_params
-    	clf = RandomizedSearchCV(model, params, scoring=scoring_fn, cv=cv_sets)
-    	fitted = clf.fit(train, labels.ravel())
-    	clfs.append(fitted)
+        params, model = model_params
+        clf = GridSearchCV(model, params, scoring=scoring_fn)
+        fitted = clf.fit(train, labels.ravel())
+        clfs.append(fitted)
     return clfs
 
 
 models = [(params_xgb, xgb.XGBRegressor())]
-optimal_models = cv(train, labels, models, 10, make_scorer(rmspe))
+optimal_models = cv(train, labels, models, 5, make_scorer(rmspe))
 
 # ##############
 # ### TO-DOs ###
@@ -164,18 +160,6 @@ optimal_models = cv(train, labels, models, 10, make_scorer(rmspe))
 # # fitted models used on test sets to obtain ensembled average and compare results
 # # of single & ensembled models (train on test data - extracted from our train data)
 
-
-# """
-# """
-# store1 = df.loc[df.Store == 1]
-# #store1.CompetitionOpenSinceYear
-# #plt.plot(store1.CompetitionOpenSinceMonth)
-# #plt.plot(store1.Sales)
-# plt.show()
-# s = test["Store"]
-# d = test["Date"]
-# test['Id'] = list(zip(test.Store, test.Date))
-# test.head()
 
 ## Parameters for XGBoost
 params = {"objective": "reg:linear",
