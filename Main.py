@@ -122,26 +122,25 @@ def rmspe_xg(yhat, y):
     return "rmspe", rmspe(y,yhat)
 
 """
-Cross Validation Code
+Hyper Parameter Optimisation
 
 Choosing hyper parameters for models
 """
 params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
              'max_features': ['auto', 'sqrt', 'log2'],
-             'max_depth': range(9)
+             'max_depth': [8,9,10,11]
             }
 
 params_xgb = {'n_estimators': [100, 300, 500, 1000],
               'learning_rate': [0.1, 0.2, 0.5],
-              'max_depth': [8,9,11],
+              'max_depth': [8, 9,10,11],
               "subsample": [0.8],
               "colsample_bytree": [0.7],
               "seed": [3244],
-              "eta": [0.2],
              }
 
 
-def cv(train, labels, models, k, scoring_fn):
+def optimise_hyper_parameters(train, labels, models, k, scoring_fn):
     clfs = []
     cv_sets = TimeSeriesSplit(n_splits=k).split(train)
     for idx, model_params in enumerate(models):
@@ -152,17 +151,21 @@ def cv(train, labels, models, k, scoring_fn):
     return clfs
 
 
-models = [(params_xgb, xgb.XGBRegressor())]
-optimal_models = cv(train, np.log1p(labels), models, 5, make_scorer(rmspe))
+models = [(params_rf, RandomForestRegressor()), (params_xgb, xgb.XGBRegressor())]
+optimal_models = optimise_hyper_parameters(train, np.log1p(labels), models, 5, make_scorer(rmspe))
 
-# ##############
-# ### TO-DOs ###
-# ##############
-# # fitted models used on test sets to obtain ensembled average and compare results
-# # of single & ensembled models (train on test data - extracted from our train data)
+for optimal_model in optimal_models:
+    print(optimal_model.best_params_)
 
 
-## Parameters for XGBoost
+"""
+Model Selection, Ensembling and Local Validation Result
+"""
+X_train, X_valid, y_train, y_valid = train_test_split(train, labels, test_size=0.012, random_state=10)
+y_train = np.log1p(np.array(y_train, dtype=np.int32))
+y_valid = np.log1p(np.array(y_valid, dtype=np.int32))
+
+## XGBoost Results using optimal parameters selected above
 params = {"objective": "reg:linear",
           "booster" : "gbtree",
           "eta": 0.2,
@@ -170,16 +173,10 @@ params = {"objective": "reg:linear",
           "subsample": 0.8,
           "colsample_bytree": 0.7,
           "silent": 1,
-          "seed": 3244
+          "seed": 3244,
           }
 
 num_boost_round = 300
-
-## Train a XGBoost model
-X_train, X_valid, y_train, y_valid = train_test_split(train, labels, test_size=0.012, random_state=10)
-y_train = np.log1p(np.array(y_train, dtype=np.int32))
-y_valid = np.log1p(np.array(y_valid, dtype=np.int32))
-
 dtrain = xgb.DMatrix(X_train, y_train)
 dvalid = xgb.DMatrix(X_valid, y_valid)
 
@@ -193,6 +190,14 @@ pred_y = gbm.predict(xgb.DMatrix(X_valid))
 error = rmspe(y_valid, np.expm1(pred_y))
 print('RMSPE: {:.6f}'.format(error))
 
+
+## Random Forest Results by using optimal parameters selected above
+
+
+## SVR Results by using arbitrary parameters. Hyper Parameter Selection takes too long
+
+
+# We would choose the best model from reported validation result.
 
 """
 Submission Code
