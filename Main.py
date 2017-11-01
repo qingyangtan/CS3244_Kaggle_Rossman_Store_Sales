@@ -1,3 +1,4 @@
+from scipy import stats
 import numpy as np
 import math
 import pandas as pd
@@ -28,8 +29,8 @@ def initialise_train_data(train, store):
     df = train.merge(store, on='Store')
     ## Get labels and remove from dataframe
     labels = df.values[:,3]
-    labels = np.array([labels]).T
-    #df = df.drop('Sales', axis=1)
+    labels = np.array([labels], dtype=np.int32).T
+    df = df.drop('Sales', axis=1)
     return (df, labels)
 
 def initialise_test_data(test, store):
@@ -79,14 +80,13 @@ def store_features(df):
                 	'IsPromoMonth'] = 1
     return df
 
-def remove_intermediate_features(df):
-    df = df.drop('monthStr', 1)
-    df = df.drop('PromoInterval', 1)
-    df = df.drop('Date', 1)
-    ## should we remove December data points, apparently it's an outlier (due to it
-	## being a holiday and they tend to spend more)
-	# df = df[df.Month != 12]
-    return df
+def select_features(df, feature_type):
+	train_features = ['Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth']
+	test_features = ['Id', 'Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth']
+
+	if feature_type == 'train':
+		return df[train_features]
+	return df[test_features]
 
 ## check for rows which stores are closed
 def get_closed_stores_index(df):
@@ -100,11 +100,14 @@ closed_index = get_closed_stores_index(test)
 train, labels = initialise_train_data(train, store)
 test = initialise_test_data(test, store)
 
-feature_builders = [date_convert, mapping_encoding, store_features, remove_intermediate_features]
+feature_builders = [date_convert, mapping_encoding, store_features]
 
 for i in range(len(feature_builders)):
-    train = feature_builders[i](train)
-    test = feature_builders[i](test)
+	train = feature_builders[i](train)
+	test = feature_builders[i](test)
+
+train = select_features(train, 'train')
+test = select_features(test, 'test')
 
 """
 Functions Wrappers that return models
@@ -118,70 +121,42 @@ def rmspe_xg(yhat, y):
     yhat = np.expm1(yhat)
     return "rmspe", rmspe(y,yhat)
 
-# """
-# Cross Validation Code
-# """
-# params_svr = {'kernel': ['rbf', 'poly'], 
-# 			 'degree': range(5), 
-# 			 'C': np.logspace(-4, 1, 5),
-# 			 'epsilon': np.logspace(-4, 0, 5),
-# 			 'gamma': np.logspace(-3, 2, 5)
-# 			 }
+"""
+Cross Validation Code
+"""
+params_svr = {'kernel': ['rbf', 'poly'], 
+			 'degree': range(5), 
+			 'C': np.logspace(-4, 1, 5),
+			 'epsilon': np.logspace(-4, 0, 5),
+			 'gamma': np.logspace(-3, 2, 5)
+			 }
 
-# params_rf = {'n_estimators': np.logspace(0, 4, 5),
-# 			'max_features': ['auto', 'sqrt', 'log2'],
-# 			'max_depth': range(9)
-# 			}
+params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
+			'max_features': ['auto', 'sqrt', 'log2'],
+			'max_depth': range(9)
+			}
 
-# params_xgb = {'n_estimators': np.logspace(0, 4, 5),
-# 			'learning_rate': np.logspace(-4, 0, 5),
-# 			'max_depth': range(9),
-# 			'objective':['reg:linear'],
-# 			"subsample": [0.8],
-#           	"colsample_bytree": [0.7]
-# 			}
-
-# #Subset of params just to make code faster to test
-# # params_svr = {
-# #     'kernel': ['rbf', 'poly'],
-# #     'degree': range(3)
-# # }
-
-# # params_rf = {
-# #     'n_estimators': np.logspace(0,3,5),
-# #     'max_depth': range(5),
-# # }
-
-# # params_xgb = {
-# #     'n_estimators': np.logspace(0,3,5),
-# #     'max_depth': range(0,9,2),
-# #     'objective': ['reg:linear'],
-# # }
+params_xgb = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 4)],
+			'learning_rate': np.logspace(-4, 0, 5),
+			'max_depth': [6,7,8,9],
+			"subsample": [0.8],
+          	"colsample_bytree": [0.7]
+			}
 
 
-# def cv(df, labels, models, n, k, scoring_fn):
-#     clfs = []
-#     cv_sets = TimeSeriesSplit(n_splits=k).split(df)
-#     counter = 0
-#     for idx, model_params in enumerate(models):
-#     	if idx == 2:
-#     		df = xgb.DMatrix(df, labels)
-#     		cv_sets = TimeSeriesSplit(n_splits=k).split(df)
-#     	params, model = model_params
-#         counter += 1
-#         print(counter)
-#         clf = RandomizedSearchCV(model, params, scoring=scoring_fn, cv=cv_sets)
-#         fitted = clf.fit(df, labels.ravel())
-#         clfs.append(fitted)
-#     return clfs
+def cv(train, labels, models, k, scoring_fn):
+    clfs = []
+    cv_sets = TimeSeriesSplit(n_splits=k).split(train)
+    for idx, model_params in enumerate(models):
+    	params, model = model_params
+    	clf = RandomizedSearchCV(model, params, scoring=scoring_fn, cv=cv_sets)
+    	fitted = clf.fit(train, labels.ravel())
+    	clfs.append(fitted)
+    return clfs
 
 
-# models = [(params_svr, SVR()), (params_rf, RandomForestRegressor()),\
-# 		(params_xgb, xgb.XGBClassifier())]
-# optimal_models = cv(df[,:50000], labels[,:50000], models, 5, 10,\
-# 				make_scorer(rmspe))
-# print(optimal_models)
-
+models = [(params_xgb, xgb.XGBRegressor())]
+optimal_models = cv(train, labels, models, 10, make_scorer(rmspe))
 
 # ##############
 # ### TO-DOs ###
@@ -202,9 +177,6 @@ def rmspe_xg(yhat, y):
 # test['Id'] = list(zip(test.Store, test.Date))
 # test.head()
 
-"""
-Submission Code
-"""
 ## Parameters for XGBoost
 params = {"objective": "reg:linear",
           "booster" : "gbtree",
@@ -219,26 +191,34 @@ params = {"objective": "reg:linear",
 num_boost_round = 300
 
 ## Train a XGBoost model
-X_train, X_valid = train_test_split(train, test_size=0.012, random_state=10)
-y_train = np.log1p(X_train.Sales)
-y_valid = np.log1p(X_valid.Sales)
-dtrain = xgb.DMatrix(X_train.drop('Sales', axis=1), y_train)
-dvalid = xgb.DMatrix(X_valid.drop('Sales', axis=1), y_valid)
+X_train, X_valid, y_train, y_valid = train_test_split(train, labels, test_size=0.012, random_state=10)
+y_train = np.log1p(np.array(y_train, dtype=np.int32))
+y_valid = np.log1p(np.array(y_valid, dtype=np.int32))
+
+dtrain = xgb.DMatrix(X_train, y_train)
+dvalid = xgb.DMatrix(X_valid, y_valid)
 
 watchlist = [(dtrain, 'train'), (dvalid, 'eval')]
+
 gbm = xgb.train(params, dtrain, num_boost_round, evals=watchlist, \
   early_stopping_rounds=100, feval=rmspe_xg, verbose_eval=False)
 
 ## Local Validation
-pred_y = gbm.predict(xgb.DMatrix(X_valid.drop('Sales', axis=1)))
-error = rmspe(X_valid.Sales.values, np.expm1(pred_y))
-
-## Local RMSPE
+pred_y = gbm.predict(xgb.DMatrix(X_valid))
+error = rmspe(y_valid, np.expm1(pred_y))
 print('RMSPE: {:.6f}'.format(error))
 
-print("Make predictions on the Test set")
+
+"""
+Submission Code
+"""
+# Preferably we can have a final model that is not just xgb. Or using the CV code above
+
+full_matrix = xgb.DMatrix(train, np.log1p(labels))
+final_model = xgb.train(params, full_matrix, num_boost_round, evals=watchlist, \
+  early_stopping_rounds=100, feval=rmspe_xg, verbose_eval=False) 
 dtest = xgb.DMatrix(test.drop('Id', axis=1))
-output = gbm.predict(dtest)
+output = final_model.predict(dtest)
 
 result = pd.DataFrame({'Id': test.Id,'Sales': np.expm1(output)})
 
