@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import make_scorer
 
 ## importing the models that will be trialed and tested against validation dataset
@@ -56,14 +56,16 @@ def mapping_encoding(df):
     return df
 
 def store_features(df):
-    mappings_month = {1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun', 7:'Jul', 8:'Aug', 9:'Sept', 10:'Oct', 11:'Nov', 12:'Dec'}
+    mappings_month = {1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun', 
+    				7:'Jul', 8:'Aug', 9:'Sept', 10:'Oct', 11:'Nov', 12:'Dec'}
     df['monthStr'] = df.Month.map(mappings_month)
     df.loc[df.PromoInterval == 0, 'PromoInterval'] = ''
     df['IsPromoMonth'] = 0
     for interval in df.PromoInterval.unique():
         if interval != '':
             for month in interval.split(','):
-                df.loc[(df.monthStr == month) & (df.PromoInterval == interval), 'IsPromoMonth'] = 1
+                df.loc[(df.monthStr == month) & (df.PromoInterval == interval),
+                	'IsPromoMonth'] = 1
 
     return df
 
@@ -71,6 +73,9 @@ def remove_intermediate_features(df):
     df = df.drop('monthStr', 1)
     df = df.drop('PromoInterval', 1)
     df = df.drop('Date', 1)
+    ## should we remove December data points, apparently it's an outlier (due to it
+	## being a holiday and they tend to spend more)
+	# df = df[df.Month != 12]
     return df
 
 ## check for rows which stores are closed
@@ -99,61 +104,77 @@ def rmspe(pred, labels):
 """
 Cross Validation Code
 """
-# params_svr = {'kernel': ['rbf', 'poly'], 
-# 			 'degree': range(5), 
-# 			 'C': np.logspace(-4, 2, 10),
-# 			 'epsilon': np.logspace(-4, 0, 10),
-# 			 'gamma': np.logspace(-3, 2, 10)
-# 			 }
+params_svr = {'kernel': ['rbf', 'poly'], 
+			 'degree': range(5), 
+			 'C': np.logspace(-4, 1, 5),
+			 'epsilon': np.logspace(-4, 0, 5),
+			 'gamma': np.logspace(-3, 2, 5)
+			 }
 
-# params_rf = {'n_estimators': np.logspace(0, 4, 10),
-# 			'max_features': ['auto', 'sqrt', 'log2'],
-# 			'max_depth': range(9)
-# 			}
+params_rf = {'n_estimators': np.logspace(0, 4, 5),
+			'max_features': ['auto', 'sqrt', 'log2'],
+			'max_depth': range(9)
+			}
 
-# params_xgb = {'n_estimators': np.logspace(0, 4, 10),
-# 			'learning_rate': np.logspace(-4, 0, 10),
-# 			'max_depth': range(9),
-# 			'objective':['reg:linear'],
-# 			"subsample": [0.8],
-#           	"colsample_bytree": [0.7]
-# 			}
+params_xgb = {'n_estimators': np.logspace(0, 4, 5),
+			'learning_rate': np.logspace(-4, 0, 5),
+			'max_depth': range(9),
+			'objective':['reg:linear'],
+			"subsample": [0.8],
+          	"colsample_bytree": [0.7]
+			}
 
 #Subset of params just to make code faster to test
-params_svr = {
-    'kernel': ['rbf', 'poly'],
-    'degree': range(3)
-}
+# params_svr = {
+#     'kernel': ['rbf', 'poly'],
+#     'degree': range(3)
+# }
 
-params_rf = {
-    'n_estimators': np.logspace(0,3,5),
-    'max_depth': range(5),
-}
+# params_rf = {
+#     'n_estimators': np.logspace(0,3,5),
+#     'max_depth': range(5),
+# }
 
-params_xgb = {
-    'n_estimators': np.logspace(0,3,5),
-    'max_depth': range(0,9,2),
-    'objective': ['reg:linear'],
+# params_xgb = {
+#     'n_estimators': np.logspace(0,3,5),
+#     'max_depth': range(0,9,2),
+#     'objective': ['reg:linear'],
+# }
 
-}
+
 def cv(df, labels, models, n, k, scoring_fn):
     clfs = []
-    cv_sets = TimeSeriesSplit(n_splits = k).split(df)
+    cv_sets = TimeSeriesSplit(n_splits=k).split(df)
     counter = 0
-    for params, model in models:
+    for idx, model_params in enumerate(models):
+    	if idx == 2:
+    		df = xgb.DMatrix(df, labels)
+    		cv_sets = TimeSeriesSplit(n_splits=k).split(df)
+    	params, model = model_params
         counter += 1
         print(counter)
-        clf = GridSearchCV(model, params, scoring=scoring_fn, cv=cv_sets)
+        clf = RandomizedSearchCV(model, params, scoring=scoring_fn, cv=cv_sets)
         fitted = clf.fit(df, labels.ravel())
         clfs.append(fitted)
     return clfs
 
 
-models = [(params_svr, SVR()), (params_rf, RandomForestRegressor()), (params_xgb, xgb.XGBClassifier())]
-optimal_models = cv(df, labels, models, 5, 10, make_scorer(rmspe))
+models = [(params_svr, SVR()), (params_rf, RandomForestRegressor()),\
+		(params_xgb, xgb.XGBClassifier())]
+optimal_models = cv(df[,:50000], labels[,:50000], models, 5, 10,\
+				make_scorer(rmspe))
 print(optimal_models)
-"""
 
+
+##############
+### TO-DOs ###
+##############
+# fitted models used on test sets to obtain ensembled average and compare results
+# of single & ensembled models (train on test data - extracted from our train data)
+
+
+
+"""
 """
 store1 = df.loc[df.Store == 1]
 #store1.CompetitionOpenSinceYear
