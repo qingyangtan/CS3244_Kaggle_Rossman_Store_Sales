@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.metrics import make_scorer
 
 ## importing the models that will be trialed and tested against validation dataset
 from sklearn.ensemble import RandomForestRegressor
@@ -92,34 +93,49 @@ closed_index = get_closed_stores_index(test)
 Functions Wrappers that return models
 """
 
-def rmspe(model, X, labels):
-    clf = model.fit(X, labels)
-    pred = clf.predict(X)
+def rmspe(pred, labels):
     return np.float32(np.sqrt(np.mean((pred/labels-1) ** 2)))
 
 """
 Cross Validation Code
 """
-params_svr = {'kernel': ['rbf', 'poly'], 
-			 'degree': range(5), 
-			 'C': np.logspace(-4, 2, 10),
-			 'epsilon': np.logspace(-4, 0, 10),
-			 'gamma': np.logspace(-3, 2, 10)
-			 }
+# params_svr = {'kernel': ['rbf', 'poly'], 
+# 			 'degree': range(5), 
+# 			 'C': np.logspace(-4, 2, 10),
+# 			 'epsilon': np.logspace(-4, 0, 10),
+# 			 'gamma': np.logspace(-3, 2, 10)
+# 			 }
 
-params_rf = {'n_estimators': np.logspace(0, 4, 10),
-			'max_features': ['auto', 'sqrt', 'log2'],
-			'max_depth': range(9)
-			}
+# params_rf = {'n_estimators': np.logspace(0, 4, 10),
+# 			'max_features': ['auto', 'sqrt', 'log2'],
+# 			'max_depth': range(9)
+# 			}
 
-params_xgb = {'n_estimators': np.logspace(0, 4, 10),
-			'learning_rate': np.logspace(-4, 0, 10),
-			'max_depth': range(9),
-			'objective':['reg:linear'],
-			"subsample": [0.8],
-          	"colsample_bytree": [0.7]
-			}
+# params_xgb = {'n_estimators': np.logspace(0, 4, 10),
+# 			'learning_rate': np.logspace(-4, 0, 10),
+# 			'max_depth': range(9),
+# 			'objective':['reg:linear'],
+# 			"subsample": [0.8],
+#           	"colsample_bytree": [0.7]
+# 			}
 
+#Subset of params just to make code faster to test
+params_svr = {
+    'kernel': ['rbf', 'poly'],
+    'degree': range(3)
+}
+
+params_rf = {
+    'n_estimators': np.logspace(0,3,5),
+    'max_depth': range(5),
+}
+
+params_xgb = {
+    'n_estimators': np.logspace(0,3,5),
+    'max_depth': range(0,9,2),
+    'objective': ['reg:linear'],
+
+}
 def cv(df, labels, models, n, k, scoring_fn):
     clfs = []
     cv_sets = TimeSeriesSplit(n_splits = k).split(df)
@@ -134,7 +150,7 @@ def cv(df, labels, models, n, k, scoring_fn):
 
 
 models = [(params_svr, SVR()), (params_rf, RandomForestRegressor()), (params_xgb, xgb.XGBClassifier())]
-optimal_models = cv(df, labels, models, 5, 10, rmspe)
+optimal_models = cv(df, labels, models, 5, 10, make_scorer(rmspe))
 print(optimal_models)
 """
 
