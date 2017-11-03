@@ -128,12 +128,12 @@ Choosing hyper parameters for models
 """
 params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
              'max_features': ['auto', 'sqrt', 'log2'],
-             'max_depth': [8,9,10,11]
+             'max_depth': [8,10,12]
             }
 
 params_xgb = {'n_estimators': [100, 300, 500, 1000],
               'learning_rate': [0.1, 0.2, 0.5],
-              'max_depth': [8, 9,10,11],
+              'max_depth': [8, 10,12],
               "subsample": [0.8],
               "colsample_bytree": [0.7],
               "seed": [3244],
@@ -160,6 +160,9 @@ for optimal_model in optimal_models:
 
 """
 Model Selection, Ensembling and Local Validation Result
+
+We set parameters here again so that we do not have to rerun the above cell.
+Hyper parameter tuning is time costly.
 """
 X_train, X_valid, y_train, y_valid = train_test_split(train, labels, test_size=0.012, random_state=10)
 y_train = np.log1p(np.array(y_train, dtype=np.int32))
@@ -182,11 +185,11 @@ dvalid = xgb.DMatrix(X_valid, y_valid)
 
 watchlist = [(dtrain, 'train'), (dvalid, 'eval')]
 
-gbm = xgb.train(params, dtrain, num_boost_round, evals=watchlist, \
+xg_model = xgb.train(params, dtrain, num_boost_round, evals=watchlist, \
   early_stopping_rounds=100, feval=rmspe_xg, verbose_eval=False)
 
 ## Local Validation
-pred_y = gbm.predict(xgb.DMatrix(X_valid))
+pred_y = xg_model.predict(xgb.DMatrix(X_valid))
 error = rmspe(y_valid, np.expm1(pred_y))
 print('RMSPE: {:.6f}'.format(error))
 
