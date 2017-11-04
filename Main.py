@@ -23,8 +23,6 @@ Functions that help initialise data and include new features to the data set to 
 def initialise_train_data(train, store):
     ## label our dataframe with id
     train['Id'] = range(1,len(train)+1)
-    ## removed 0 sales because they are not used in grading
-    train = train[train.Sales != 0]
     ## fill the N.A.N values
     store = store.fillna(0)
     ## combine all features together
@@ -43,6 +41,18 @@ def initialise_test_data(test, store):
     ## combine all features together
     df = test.merge(store, on='Store')
     df = df.sort_values(['Id'], ascending=[1])
+    return df
+
+def set_store_close_and_sales_data(df):
+    df['StoreClosedNextDay'] = df['Open']
+    df['StoreClosedNextDay'] = df.StoreClosedNextDay.shift(-1)
+    df['StoreClosedNextDay'] = -1 * (df['StoreClosedNextDay'] - 1)
+    df['StoreClosedNextDay'][df.shape[0] - 1] = 0
+    df['StoreClosedNextDay'] = df.StoreClosedNextDay.astype(int)
+
+    if 'Sales' in df.columns:
+        df = df[df.Sales != 0]
+        df.drop('Sales', axis=1)
     return df
 
 ## converting dates into year, month, day and additional feature week of the year
@@ -83,8 +93,8 @@ def store_features(df):
     return df
 
 def select_features(df, feature_type):
-	train_features = ['Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth']
-	test_features = ['Id', 'Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth']
+	train_features = ['Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth', 'StoreClosedNextDay']
+	test_features = ['Id', 'Store', 'Promo', 'Promo2', 'Customers', 'SchoolHoliday', 'StoreType', 'Assortment', 'StateHoliday', 'DayOfWeek', 'Month', 'Day', 'Year', 'WeekOfYear', 'IsPromoMonth', 'StoreClosedNextDay']
 
 	if feature_type == 'train':
 		return df[train_features]
@@ -102,7 +112,7 @@ closed_index = get_closed_stores_index(test)
 train, labels = initialise_train_data(train, store)
 test = initialise_test_data(test, store)
 
-feature_builders = [date_convert, mapping_encoding, store_features]
+feature_builders = [set_store_close_and_sales_data, date_convert, mapping_encoding, store_features]
 
 for i in range(len(feature_builders)):
 	train = feature_builders[i](train)
