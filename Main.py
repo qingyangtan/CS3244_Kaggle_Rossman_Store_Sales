@@ -90,7 +90,7 @@ def select_features(df, feature_type):
 
 ## check for rows which stores are closed
 def get_closed_stores_index(df):
-    return df.ix[test['Open']==0].index
+    return df.ix[df['Open']==0].index
 
 """
 Build Features in the order defined by feature_builders array
