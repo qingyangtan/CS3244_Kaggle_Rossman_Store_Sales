@@ -21,6 +21,8 @@ test = pd.read_csv('test.csv',dtype={"StateHoliday": str})
 Functions that help initialise data and include new features to the data set to be trained
 """
 def initialise_train_data(train, store):
+    ## label our dataframe with id
+    train['Id'] = range(1,len(train)+1)
     ## removed 0 sales because they are not used in grading
     train = train[train.Sales != 0]
     ## fill the N.A.N values
@@ -30,7 +32,7 @@ def initialise_train_data(train, store):
     ## Get labels and remove from dataframe
     labels = df.values[:,3]
     labels = np.array([labels], dtype=np.int32).T
-    df = df.drop('Sales', axis=1)
+    df = df.drop(['Sales','Id'], axis=1)
     return (df, labels)
 
 def initialise_test_data(test, store):
