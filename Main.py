@@ -164,8 +164,12 @@ Model Selection, Ensembling and Local Validation Result
 We set parameters here again so that we do not have to rerun the above cell.
 Hyper parameter tuning is time costly.
 """
-X_train, X_valid, y_train, y_valid = train_test_split(train, labels, test_size=0.012, random_state=10)
-y_train = np.log1p(np.array(y_train, dtype=np.int32))
+
+n = round(len(train)*0.012)
+X_train = train[n:] 
+X_valid = train[:n]
+y_train = labels[n:]
+y_valid = labels[:n]y_train = np.log1p(np.array(y_train, dtype=np.int32))
 y_valid = np.log1p(np.array(y_valid, dtype=np.int32))
 
 ## XGBoost Results using optimal parameters selected above
@@ -189,9 +193,15 @@ xg_model = xgb.train(params, dtrain, num_boost_round, evals=watchlist, \
   early_stopping_rounds=100, feval=rmspe_xg, verbose_eval=False)
 
 ## Local Validation
+rf_model = RandomForestRegressor()
+rf_model.fit(X_train,y_train)
+pred_y = rf_model.predict(X_valid)
+error = rmspe(np.expm1(y_valid), np.expm1(pred_y))
+print('RF RMSPE: {:.6f}'.format(error))
+
 pred_y = xg_model.predict(xgb.DMatrix(X_valid))
-error = rmspe(y_valid, np.expm1(pred_y))
-print('RMSPE: {:.6f}'.format(error))
+error = rmspe(np.expm1(y_valid), np.expm1(pred_y))
+print('XGB RMSPE: {:.6f}'.format(error))
 
 
 ## Random Forest Results by using optimal parameters selected above
