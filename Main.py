@@ -128,19 +128,18 @@ Hyper Parameter Optimisation
 
 Choosing hyper parameters for models
 """
-params_rf = {'n_estimators': [np.int(x) for x in np.logspace(0, 4, 5)],
+params_rf = {'n_estimators':  [10, 100, 500, 1000],
              'max_features': ['auto', 'sqrt', 'log2'],
-             'max_depth': [8,10,12]
+             'max_depth': [8,9,10,11,12]
             }
 
 params_xgb = {'n_estimators': [100, 300, 500, 1000],
               'learning_rate': [0.1, 0.2, 0.5],
-              'max_depth': [8, 10,12],
+              'max_depth': [8, 9, 10, 12],
               "subsample": [0.8],
               "colsample_bytree": [0.7],
               "seed": [3244],
-             }
-
+           }
 
 def optimise_hyper_parameters(train, labels, models, k, scoring_fn):
     clfs = []
@@ -171,7 +170,8 @@ n = round(len(train)*0.012)
 X_train = train[n:] 
 X_valid = train[:n]
 y_train = labels[n:]
-y_valid = labels[:n]y_train = np.log1p(np.array(y_train, dtype=np.int32))
+y_valid = labels[:n]
+y_train = np.log1p(np.array(y_train, dtype=np.int32))
 y_valid = np.log1p(np.array(y_valid, dtype=np.int32))
 
 ## XGBoost Results using optimal parameters selected above
@@ -195,19 +195,17 @@ xg_model = xgb.train(params, dtrain, num_boost_round, evals=watchlist, \
   early_stopping_rounds=100, feval=rmspe_xg, verbose_eval=False)
 
 ## Local Validation
-rf_model = RandomForestRegressor()
-rf_model.fit(X_train,y_train)
-pred_y = rf_model.predict(X_valid)
-error = rmspe(np.expm1(y_valid), np.expm1(pred_y))
-print('RF RMSPE: {:.6f}'.format(error))
-
 pred_y = xg_model.predict(xgb.DMatrix(X_valid))
 error = rmspe(np.expm1(y_valid), np.expm1(pred_y))
 print('XGB RMSPE: {:.6f}'.format(error))
 
 
 ## Random Forest Results by using optimal parameters selected above
-
+rf_model = RandomForestRegressor(n_estimators=10, max_depth=8, max_features=log2)
+rf_model.fit(X_train,y_train)
+pred_y = rf_model.predict(X_valid)
+error = rmspe(np.expm1(y_valid), np.expm1(pred_y))
+print('RF RMSPE: {:.6f}'.format(error))
 
 ## SVR Results by using arbitrary parameters. Hyper Parameter Selection takes too long
 
