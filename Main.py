@@ -30,7 +30,6 @@ def initialise_train_data(train, store):
     ## Get labels and remove from dataframe
     labels = df.values[:,3]
     labels = np.array([labels], dtype=np.int32).T
-    df = df.drop(['Sales','Id'], axis=1)
     return (df, labels)
 
 def initialise_test_data(test, store):
